@@ -1,6 +1,7 @@
 package com.streamcommerce.dto.response;
 
 import com.streamcommerce.model.Address;
+import com.streamcommerce.model.UserStatus;
 import com.streamcommerce.model.UserType;
 import lombok.Data;
 import lombok.experimental.SuperBuilder;

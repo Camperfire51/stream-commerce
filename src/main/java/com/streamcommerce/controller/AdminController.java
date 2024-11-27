@@ -1,6 +1,6 @@
 package com.streamcommerce.controller;
 
-import com.streamcommerce.dto.ProductDTO;
+import com.streamcommerce.dto.response.ProductResponseDTO;
 import com.streamcommerce.model.ProductStatus;
 import com.streamcommerce.service.ProductServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ public class AdminController {
     }
 
     @GetMapping("/products")
-    public ResponseEntity<List<ProductDTO>> getProducts(
+    public ResponseEntity<List<ProductResponseDTO>> getProducts(
             @RequestParam(value = "name", required = false) String name,
             @RequestParam(value = "minPrice", required = false) BigDecimal minPrice,
             @RequestParam(value = "maxPrice", required = false) BigDecimal maxPrice,
@@ -31,17 +31,16 @@ public class AdminController {
             @RequestParam(value = "vendorId", required = false) Long vendorId,
             @RequestParam(value = "status", required = false) ProductStatus status) {
 
-        List<ProductDTO> products = productService.getProducts(name, minPrice, maxPrice, category, vendorId, status);
-
-        return ResponseEntity.ok(products);
+        return ResponseEntity.ok(productService.getProducts(name, minPrice, maxPrice, category, vendorId, status));
     }
 
     @PostMapping("/products")
-    public ResponseEntity<ProductDTO> setProductStatus(
+    public ResponseEntity<Void> setProductStatus(
             @RequestBody Long productId,
             @RequestParam(value = "status") ProductStatus status) {
 
         productService.setProductStatus(productId, status);
-        return ResponseEntity.ok(ProductDTO.builder().build());
+
+        return ResponseEntity.ok().build();
     }
 }

@@ -1,6 +1,8 @@
 package com.streamcommerce.service;
 
-import com.streamcommerce.dto.ProductDTO;
+import com.streamcommerce.dto.request.ProductRequestDTO;
+import com.streamcommerce.dto.response.ProductResponseDTO;
+import com.streamcommerce.exception.ProductNotFoundException;
 import com.streamcommerce.model.Product;
 import com.streamcommerce.model.ProductStatus;
 import com.streamcommerce.repository.CategoryRepository;
@@ -30,12 +32,14 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public boolean doesProductExist(Long productId){
-        return productRepository.existsById(productId);
+    public ProductResponseDTO getProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+        return mapToResponse(product);
     }
 
     @Override
-    public List<ProductDTO> getProducts(String name, BigDecimal minPrice, BigDecimal maxPrice, String categoryPath, Long vendorId, ProductStatus status) {
+    public List<ProductResponseDTO> getProducts(String name, BigDecimal minPrice, BigDecimal maxPrice, String categoryPath, Long vendorId, ProductStatus status) {
         Specification<Product> spec = Specification.where(null); // Start with no specifications
 
         // Add name filter if provided
@@ -68,34 +72,25 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return productRepository.findAll(spec).stream()
-                .map(this::mapToDTO)
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public ProductDTO getProductById(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-        return mapToDTO(product);
-    }
-
-    @Override
-    public void submitProduct(ProductDTO productDTO){
-        Product product = mapToEntity(productDTO);
-        product.setDiscountPercentage(0);
+    public void submitProduct(ProductRequestDTO productRequestDTO) {
+        Product product = mapToEntity(productRequestDTO);
+        // New products are always in "PENDING" status.
         product.setStatus(ProductStatus.PENDING);
         productRepository.save(product);
     }
 
     @Override
-    public void modifyProduct(ProductDTO productDTO){
-        Product product = productRepository.findById(productDTO.getId()).orElseThrow();
+    public void modifyProduct(Long productId, ProductRequestDTO productRequestDTO) {
+        if(!productRepository.existsById(productId))
+            throw new ProductNotFoundException("Product with id (" + productId + ") was not found");
 
-        product.setName(productDTO.getName());
-        product.setPrice(productDTO.getPrice());
-        product.setDescription(productDTO.getDescription());
-        product.setCategory(categoryRepository.findById(productDTO.getCategoryId()).orElseThrow());
-        product.setVendor(vendorRepository.findById(productDTO.getVendorId()).orElseThrow());
+        Product product = mapToEntity(productRequestDTO);
+        product.setId(productId);
         product.setStatus(ProductStatus.PENDING);
 
         productRepository.save(product);
@@ -107,6 +102,11 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public void modifyProductStatus(Long id, ProductStatus status) {
+
+    }
+
+    @Override
     public void setProductStatus(Long productId, ProductStatus status) {
         Product product = productRepository.findById(productId).orElseThrow();
         product.setStatus(status);
@@ -114,7 +114,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public boolean isProductAvailable(Long productId){
+    public boolean isProductAvailable(Long productId) {
         Product product = productRepository.findById(productId).orElseThrow();
 
         if (product.getStatus() == ProductStatus.PUBLISHED && product.getQuantity() > 0) {
@@ -124,23 +124,35 @@ public class ProductServiceImpl implements ProductService {
         return product.getStatus() == ProductStatus.PUBLISHED;
     }
 
-    private ProductDTO mapToDTO(Product product) {
-        return ProductDTO.builder()
-                .id(product.getId())
-                .name(product.getName())
-                .price(product.getPrice())
-                .description(product.getDescription())
-                .categoryId(product.getCategory().getId())
+    private Product mapToEntity(ProductRequestDTO productRequestDTO) {
+        return Product.builder()
+                .name(productRequestDTO.getName())
+                .basePrice(productRequestDTO.getBasePrice())
+                .discountPercentage(productRequestDTO.getDiscountPercentage())
+                .description(productRequestDTO.getDescription())
+                .category(categoryRepository.findById(productRequestDTO.getCategoryId()).orElseThrow())
+                .vendor(vendorRepository.findById(productRequestDTO.getVendorId()).orElseThrow())
+                .quantity(productRequestDTO.getQuantity())
                 .build();
     }
 
-    private Product mapToEntity(ProductDTO productDTO){
-        return Product.builder()
-                .name(productDTO.getName())
-                .price(productDTO.getPrice())
-                .description(productDTO.getDescription())
-                .category(categoryRepository.findById(productDTO.getCategoryId()).orElseThrow())
-                .vendor(vendorRepository.findById(productDTO.getVendorId()).orElseThrow())
+    private ProductResponseDTO mapToResponse(Product product) {
+        BigDecimal discountAmount = product.getBasePrice()
+                .multiply(product.getDiscountPercentage())
+                .divide(BigDecimal.valueOf(100)); // Discount percentage to decimal form
+
+        BigDecimal finalPrice = product.getBasePrice().subtract(discountAmount);
+
+        return ProductResponseDTO.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .basePrice(product.getBasePrice())
+                .discountPercentage(product.getDiscountPercentage())
+                .finalPrice(finalPrice)
+                .discountAmount(discountAmount)
+                .description(product.getDescription())
+                .categoryId(product.getCategory().getId())
+                .vendorId(product.getVendor().getId())
                 .build();
     }
 }

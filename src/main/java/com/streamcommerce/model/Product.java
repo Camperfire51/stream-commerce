@@ -19,7 +19,9 @@ public class Product {
 
     private String name;
 
-    private BigDecimal price;
+    private BigDecimal basePrice;
+
+    private BigDecimal discountPercentage;
 
     private String description;
 
@@ -31,9 +33,7 @@ public class Product {
     @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
-    private int discountPercentage;
-
-    private long quantity;
+    private int quantity;
 
     private ProductStatus status;
 }

@@ -17,10 +17,6 @@ public abstract class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     protected Long id;
 
-    protected String username;
-
-    protected String password;
-
     protected String email;
 
     protected LocalDateTime createdDate;
